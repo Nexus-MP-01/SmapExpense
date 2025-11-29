@@ -4,7 +4,7 @@ SmapExpense est une application web conçue pour automatiser la gestion
 des frais de recharge de véhicules électriques à domicile. Elle se
 connecte à votre borne **Smappee**, applique les tarifs officiels de la
 **CREG (Belgique)**, génère automatiquement des notes de frais
-mensuelles au format PDF et les envoie par mail à l'adresse choisie.
+mensuelles au format PDF et les envoi par mail à l'adresse choisie.
 
 ## 🚀 Fonctionnalités Principales
 
