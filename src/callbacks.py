@@ -39,7 +39,7 @@ from src.utils import (
 )
 
 # Imports pour l'UI dynamique
-from src.components import create_stats_cards, create_pdf_buttons
+from src.components import create_stats_cards, create_pdf_buttons, create_automation_history_table
 from src.pdf_generator import generate_monthly_pdf_data
 from src.database import AutomationDB
 from src.smappee_client import SmappeeClient
@@ -504,30 +504,44 @@ def register_callbacks(app):
             return no_update, no_update, no_update, no_update
         
         db = AutomationDB()
-        latest = db.get_latest_run()
         
-        if latest:
-            status_badge = create_status_badge(latest['status'])
-            try: run_date = datetime.fromisoformat(latest['run_date']).strftime('%d/%m/%Y %H:%M')
-            except: run_date = latest['run_date']
-            status = html.Div([
-                status_badge,
-                html.P(f"Dernière exécution : {run_date}", className="mb-1"),
-                html.P(f"Étape : {latest['step']}", className="text-muted mb-0", style={'fontSize': '0.9em'})
-            ])
-        else:
-            status = dbc.Alert("Aucune exécution enregistrée", style={"backgroundColor": "rgba(152, 192, 163, 0.2)", "borderColor": Config.SAGE_GREEN, "color": "#2c3e50"}, className="mb-0")
-        
-        # --- LECTURE CONFIG POUR AFFICHAGE ---
-        # On lit la DB, avec fallback sur les variables d'env (Config)
+        # 1. RECUPERATION CONFIG (Déplacé avant pour gérer l'affichage conditionnel)
         db_config = db.get_config()
         def get_conf(key, default):
             return db_config.get(key) if db_config and db_config.get(key) else default
-
-        # 1. Email destinataire
+            
+        schedule_mode = get_conf('schedule_mode', 'last_day')
+        
+        # 2. LOGIQUE D'AFFICHAGE DU STATUT ACTUEL
+        # Si désactivé, on masque les détails de la dernière exécution pour afficher "Désactivé"
+        if schedule_mode == 'disabled':
+            status = html.Div([
+                dbc.Badge("⛔ DÉSACTIVÉ", color="danger", className="mb-2", style={'fontSize': '1em'}),
+                html.P("L'automatisation est à l'arrêt.", className="mb-0"),
+                html.Small("Aucune tâche ne sera exécutée.", className="text-muted")
+            ], className="text-center p-3", style={'backgroundColor': '#fff0f0', 'borderRadius': '8px'})
+        else:
+            # Comportement normal : On affiche la dernière exécution
+            latest = db.get_latest_run()
+            if latest:
+                status_badge = create_status_badge(latest['status'])
+                try: run_date = datetime.fromisoformat(latest['run_date']).strftime('%d/%m/%Y %H:%M')
+                except: run_date = latest['run_date']
+                
+                status = html.Div([
+                    html.Div(status_badge, className="mb-2"),
+                    html.P([html.Strong("Date : "), run_date], className="mb-1"),
+                    html.P([html.Strong("Période : "), f"{latest.get('period_start')} → {latest.get('period_end')}"], className="mb-1", style={'fontSize': '0.9em'}),
+                    html.P([html.Strong("Étape : "), latest.get('step')], className="text-muted mb-0", style={'fontSize': '0.85em'})
+                ])
+            else:
+                status = dbc.Alert("Aucune exécution enregistrée", style={"backgroundColor": "rgba(152, 192, 163, 0.2)", "borderColor": Config.SAGE_GREEN, "color": "#2c3e50"}, className="mb-0")
+        
+        # 3. RECUPERATION RESTE CONFIG POUR RESUME
+        # Email destinataire
         email_target = get_conf('notification_email', Config.NOTIFICATION_EMAIL)
         
-        # 2. Smappee Status (On masque le secret)
+        # Smappee Status
         smappee_id = get_conf('smappee_client_id', Config.SMAPPEE_CLIENT_ID)
         if smappee_id and len(str(smappee_id)) > 4:
             smappee_display = f"✅ Configuré (...{str(smappee_id)[-4:]})"
@@ -536,7 +550,7 @@ def register_callbacks(app):
         else:
             smappee_display = "❌ Non configuré"
 
-        # 3. SMTP Status
+        # SMTP Status
         smtp_server = get_conf('smtp_server', Config.SMTP_SERVER)
         smtp_display = f"✅ {smtp_server}" if smtp_server else "❌ Non configuré"
 
@@ -559,15 +573,20 @@ def register_callbacks(app):
             ], className="mb-0"),
         ], style={'backgroundColor': 'white', 'padding': '10px', 'borderRadius': '8px', 'border': '1px solid #eee'})
 
-        # Calcul de la prochaine exécution
+        # 4. CALCUL PROCHAINE EXECUTION
         schedule_time = get_conf('schedule_time', '23:59')
-        schedule_mode = get_conf('schedule_mode', 'last_day')
-        mode_display = "Dernier jour du mois" if schedule_mode == 'last_day' else "1er jour du mois suivant"
         
-        next_run_text = html.Div([
-            html.P(f"Planifié : {mode_display} à {schedule_time}", className="mb-1", style={'fontWeight': 'bold'}),
-            html.P("(Planificateur interne)", className="text-muted mb-0", style={'fontSize': '0.85em'})
-        ])
+        if schedule_mode == 'disabled':
+             next_run_text = html.Div([
+                html.P("🚫 Automatisation désactivée", className="mb-1", style={'fontWeight': 'bold', 'color': Config.DARK_GREY}),
+                html.P("Aucune tâche planifiée", className="text-muted mb-0", style={'fontSize': '0.85em'})
+            ])
+        else:
+            mode_display = "Dernier jour du mois" if schedule_mode == 'last_day' else "1er jour du mois suivant"
+            next_run_text = html.Div([
+                html.P(f"Planifié : {mode_display} à {schedule_time}", className="mb-1", style={'fontWeight': 'bold'}),
+                html.P("(Planificateur interne)", className="text-muted mb-0", style={'fontSize': '0.85em'})
+            ])
         
         runs = db.get_recent_runs(limit=10)
         history = create_automation_history_table(runs)
@@ -694,7 +713,8 @@ def register_callbacks(app):
         return dbc.Alert(f"✅ {message} (envoyé à {target_email})" if success else f"❌ {message}", color="success" if success else "danger", className="mb-0")
 
     @app.callback(
-        Output('automation-history-table', 'children', allow_duplicate=True),
+        [Output('manual-trigger-alert', 'children'),
+         Output('automation-history-table', 'children', allow_duplicate=True)],
         Input('manual-trigger-btn', 'n_clicks'),
         prevent_initial_call=True
     )
@@ -703,14 +723,73 @@ def register_callbacks(app):
         from src.utils import get_previous_month_period
         from src.components import create_automation_history_table
         from src.database import AutomationDB
+        from src.smappee_client import SmappeeClient
+        from src.email_notifier import EmailNotifier
         import threading
-        if not n_clicks: return no_update
-        start, end = get_previous_month_period()
+        
+        if not n_clicks: 
+            return no_update, no_update
+            
+        db = AutomationDB()
+        
+        # 1. Récupération de la configuration
+        config = db.get_config()
+        
+        # Helper pour récupérer config ou défaut
+        def get_conf(key, default_val=None):
+            return config.get(key) if config and config.get(key) else default_val
+
+        # --- TEST CONNEXION SMAPPEE ---
+        client_id = get_conf('smappee_client_id', Config.SMAPPEE_CLIENT_ID)
+        client_secret = get_conf('smappee_client_secret', Config.SMAPPEE_CLIENT_SECRET)
+        
+        if not client_id or not client_secret:
+            alert = dbc.Alert([html.I(className="fas fa-exclamation-triangle me-2"), "⚠️ Configurer Smappee (ID/Secret) d'abord"], color="warning")
+            return alert, no_update
+            
+        smappee_client = SmappeeClient(client_id, client_secret)
+        smappee_ok, smappee_msg = smappee_client.test_connection()
+        
+        if not smappee_ok:
+            alert = dbc.Alert([html.I(className="fas fa-plug me-2"), "⚠️ Résoudre les problèmes de connexions smappee d'abord"], color="warning")
+            return alert, no_update
+
+        # --- TEST CONNEXION EMAIL ---
+        smtp_server = get_conf('smtp_server', Config.SMTP_SERVER)
+        smtp_user = get_conf('smtp_user', Config.SMTP_USER)
+        smtp_password = get_conf('smtp_password', Config.SMTP_PASSWORD)
+        smtp_port = int(get_conf('smtp_port', Config.SMTP_PORT))
+        
+        if not all([smtp_server, smtp_user, smtp_password]):
+             alert = dbc.Alert([html.I(className="fas fa-envelope me-2"), "Configurer le serveur SMTP d'abord"], color="warning")
+             return alert, no_update
+
+        notifier = EmailNotifier(smtp_server, smtp_port, smtp_user, smtp_password)
+        email_ok, email_msg = notifier.test_connection()
+        
+        if not email_ok:
+            alert = dbc.Alert([html.I(className="fas fa-wifi me-2"), "Résoudre les problèmes de connexions du mail d'abord"], color="warning")
+            return alert, no_update
+
+        # --- TOUT EST OK : LANCEMENT ---
+        # Logique de date intelligente : 
+        # Si on est le 1er du mois -> On traite le mois précédent
+        # Sinon (ex: le 29) -> On traite le mois courant (pour tests ou facture en cours)
+        now = datetime.now()
+        if now.day == 1:
+            start, end = get_previous_month_period()
+        else:
+            start, end = get_current_month_period()
+            
         thread = threading.Thread(target=run_monthly_automation, args=(start.isoformat(), end.isoformat(), True), daemon=True)
         thread.start()
-        db = AutomationDB()
+        
+        # Message de succès temporaire
+        success_alert = dbc.Alert("✅ Connexions OK. Automatisation lancée en arrière-plan...", color="success", duration=4000)
+        
+        # On rafraichit la table
         runs = db.get_recent_runs(limit=10)
-        return create_automation_history_table(runs)
+        return success_alert, create_automation_history_table(runs)
     
     # Callback pour la modale mensuelle PDF (Verrouillé avec prevent_initial_call=True)
     @app.callback(
@@ -752,3 +831,64 @@ def register_callbacks(app):
                 return False, no_update, no_update, pdf_data
                 
         return no_update, no_update, no_update, no_update
+
+    # Callback pour ouvrir la modale de suppression
+    @app.callback(
+        [Output('delete-run-modal', 'is_open'),
+         Output('run-to-delete-id', 'data')],
+        Input({'type': 'delete-run-btn', 'index': ALL}, 'n_clicks'),
+        [State('delete-run-modal', 'is_open'),
+         State('run-to-delete-id', 'data')],
+        prevent_initial_call=True
+    )
+    def open_delete_modal(n_clicks, is_open, current_run_id):
+        ctx = callback_context
+        if not ctx.triggered:
+            return no_update, no_update
+        
+        triggered_id = ctx.triggered_id
+        
+        # Sécurité : Si l'ID déclencheur n'est pas un dictionnaire (cas rare mais possible) ou n'a pas d'index
+        if not triggered_id or not isinstance(triggered_id, dict) or 'index' not in triggered_id:
+            return no_update, no_update
+
+        # Vérification cruciale : Est-ce un vrai clic ?
+        # Avec pattern matching ALL, on doit vérifier la valeur spécifique qui a déclenché
+        # ctx.triggered ressemble à [{'prop_id': '{"index":1,"type":"delete-run-btn"}.n_clicks', 'value': 1}]
+        
+        trigger_data = ctx.triggered[0]
+        clicked_value = trigger_data.get('value')
+        
+        # Si le clic est None ou 0, c'est une initialisation/création de composant, on ignore
+        if not clicked_value:
+            return no_update, no_update
+            
+        return True, triggered_id['index']
+
+    # Callback pour confirmer la suppression OU annuler
+    @app.callback(
+        [Output('automation-history-table', 'children', allow_duplicate=True),
+         Output('delete-run-modal', 'is_open', allow_duplicate=True)],
+        [Input('confirm-delete-btn', 'n_clicks'),
+         Input('cancel-delete-btn', 'n_clicks')],
+        State('run-to-delete-id', 'data'),
+        prevent_initial_call=True
+    )
+    def process_delete_run(confirm_click, cancel_click, run_id):
+        ctx = callback_context
+        if not ctx.triggered: return no_update, no_update
+        
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        
+        if button_id == 'confirm-delete-btn' and run_id:
+            db = AutomationDB()
+            db.delete_run(run_id)
+            runs = db.get_recent_runs(limit=10)
+            # On retourne la nouvelle table et on ferme la modale
+            return create_automation_history_table(runs), False
+            
+        elif button_id == 'cancel-delete-btn':
+            # On ferme juste la modale
+            return no_update, False
+            
+        return no_update, no_update

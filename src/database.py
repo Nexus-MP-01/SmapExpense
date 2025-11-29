@@ -120,6 +120,16 @@ class AutomationDB:
         
         return [dict(row) for row in rows]
     
+    def delete_run(self, run_id):
+        """Supprime une exécution spécifique de la base de données"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM automation_runs WHERE id = ?', (run_id,))
+        
+        conn.commit()
+        conn.close()
+    
     def save_config(self, key, value):
         """Sauvegarde une valeur de configuration"""
         conn = sqlite3.connect(self.db_path)

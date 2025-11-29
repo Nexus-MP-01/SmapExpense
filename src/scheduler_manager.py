@@ -35,8 +35,14 @@ class SchedulerManager:
         cls._scheduler.remove_all_jobs()
         
         # Valeurs par défaut : Dernier jour du mois à 23:59:59
-        mode = config.get('schedule_mode', 'last_day') # 'last_day' ou 'first_day'
+        mode = config.get('schedule_mode', 'last_day') # 'last_day', 'first_day', 'disabled'
         time_str = config.get('schedule_time', '23:59')
+        
+        # --- AJOUT: Gestion du mode désactivé ---
+        if mode == 'disabled':
+            print("📅 Planification : Automatisation désactivée par l'utilisateur.")
+            return
+        # ---------------------------------------
         
         try:
             hour, minute = time_str.split(':')

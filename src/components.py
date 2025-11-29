@@ -455,6 +455,18 @@ def create_creg_modal():
 # SECTION AUTOMATISATION - Dashboard
 # ============================================================================
 
+def create_delete_confirmation_modal():
+    """Crée la modale de confirmation de suppression"""
+    return dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("⚠️ Confirmation")),
+        dbc.ModalBody("Voulez-vous vraiment supprimer cette ligne de l'historique ?\nCette action est irréversible et nettoiera la base de données."),
+        dbc.ModalFooter([
+            dbc.Button("Non, annuler", id="cancel-delete-btn", className="me-auto", color="secondary"),
+            dbc.Button("Oui, supprimer", id="confirm-delete-btn", color="danger")
+        ])
+    ], id="delete-run-modal", is_open=False)
+
+
 def create_automation_dashboard():
     """Crée le dashboard de monitoring des automatisations"""
     return dbc.Card([
@@ -485,6 +497,9 @@ def create_automation_dashboard():
             ], className="mb-4"),
             
             html.Hr(),
+            
+            # Zone d'alerte pour le déclenchement manuel
+            html.Div(id='manual-trigger-alert', className="mb-3"),
             
             # Boutons d'action
             dbc.Row([
@@ -518,13 +533,17 @@ def create_automation_dashboard():
             
             # Historique
             html.H5("📋 Historique des Exécutions", style={'color': Config.SAGE_GREEN}),
-            html.Div(id='automation-history-table')
+            html.Div(id='automation-history-table'),
+            
+            # Modale de suppression et Store caché
+            create_delete_confirmation_modal(),
+            dcc.Store(id='run-to-delete-id')
         ])
     ], className="mb-4")
 
 
 def create_automation_history_table(runs):
-    """Crée le tableau d'historique des automatisations"""
+    """Crée le tableau d'historique des automatisations avec suppression"""
     if not runs:
         return dbc.Alert("Aucune exécution enregistrée", style={"backgroundColor": "rgba(152, 192, 163, 0.2)", "borderColor": Config.SAGE_GREEN, "color": "#2c3e50"})
     
@@ -534,7 +553,8 @@ def create_automation_history_table(runs):
             html.Th("Période", style={'backgroundColor': Config.DARK_GREY, 'color': 'white'}),
             html.Th("Étape", style={'backgroundColor': Config.DARK_GREY, 'color': 'white'}),
             html.Th("Statut", style={'backgroundColor': Config.DARK_GREY, 'color': 'white'}),
-            html.Th("Message", style={'backgroundColor': Config.DARK_GREY, 'color': 'white'})
+            html.Th("Message", style={'backgroundColor': Config.DARK_GREY, 'color': 'white'}),
+            html.Th("", style={'backgroundColor': Config.DARK_GREY, 'color': 'white', 'width': '50px'}) # Colonne suppression
         ]))
     ]
     
@@ -547,12 +567,24 @@ def create_automation_history_table(runs):
         except:
             run_date = run['run_date']
         
+        # Bouton suppression avec pattern-matching ID
+        delete_btn = dbc.Button(
+            html.I(className="fas fa-trash-alt"),
+            id={'type': 'delete-run-btn', 'index': run['id']},
+            color="danger",
+            outline=True,
+            size="sm",
+            className="border-0 bg-transparent",
+            title="Supprimer cette ligne"
+        )
+
         rows.append(html.Tr([
             html.Td(run_date),
             html.Td(f"{run['period_start']} → {run['period_end']}"),
             html.Td(run['step']),
             html.Td(status_badge),
-            html.Td(run['message'], style={'fontSize': '0.85em'})
+            html.Td(run['message'], style={'fontSize': '0.85em'}),
+            html.Td(delete_btn, style={'textAlign': 'center'})
         ]))
     
     table_body = [html.Tbody(rows)]
@@ -610,7 +642,8 @@ def create_automation_config_modal_simple():
                         id='schedule-mode-input',
                         options=[
                             {'label': 'Dernier jour du mois (recommandé)', 'value': 'last_day'},
-                            {'label': '1er jour du mois suivant', 'value': 'first_day'}
+                            {'label': '1er jour du mois suivant', 'value': 'first_day'},
+                            {'label': 'Désactivé', 'value': 'disabled'} # AJOUT OPTION DÉSACTIVÉ
                         ],
                         value='last_day'
                     )

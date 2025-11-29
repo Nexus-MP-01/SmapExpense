@@ -55,39 +55,47 @@ def run_monthly_automation(period_start, period_end, manual_trigger=False):
         def get_conf(key, default_val):
             return db_config.get(key) if db_config and db_config.get(key) else default_val
 
-        # 1. Config Email
-        notification_email = get_conf('notification_email', Config.NOTIFICATION_EMAIL)
-        
-        # 2. Config Smappee
+        # --- 0. PRÉ-VÉRIFICATION DES CONNEXIONS ---
+        db.update_run(run_id, 'check_connection', 'pending', 'Vérification des connexions...')
+
+        # Config Smappee
         smappee_client_id = get_conf('smappee_client_id', Config.SMAPPEE_CLIENT_ID)
         smappee_client_secret = get_conf('smappee_client_secret', Config.SMAPPEE_CLIENT_SECRET)
         smappee_location_id = get_conf('smappee_location_id', Config.SMAPPEE_LOCATION_ID)
         
-        # 3. Config SMTP
+        # Config SMTP
         smtp_server = get_conf('smtp_server', Config.SMTP_SERVER)
         smtp_port = get_conf('smtp_port', Config.SMTP_PORT)
         smtp_user = get_conf('smtp_user', Config.SMTP_USER)
         smtp_password = get_conf('smtp_password', Config.SMTP_PASSWORD)
-        
-        # Vérification des configs critiques
-        if not notification_email:
-             raise Exception("Email de notification manquant (.env ou Config)")
-        
-        if not all([smappee_client_id, smappee_client_secret, smappee_location_id]):
-            raise Exception("Configuration Smappee incomplète (Vérifiez .env ou Config)")
+        notification_email = get_conf('notification_email', Config.NOTIFICATION_EMAIL)
 
+        # A. Test Smappee
+        if not all([smappee_client_id, smappee_client_secret, smappee_location_id]):
+            raise Exception("⚠️ Configuration Smappee incomplète")
+            
+        smappee_test = SmappeeClient(smappee_client_id, smappee_client_secret)
+        if not smappee_test.authenticate():
+             # Message spécifique demandé par l'utilisateur
+             raise Exception("⚠️ Résoudre les problèmes de connexions smappee d'abord")
+
+        # B. Test Email
         if not all([smtp_server, smtp_user, smtp_password]):
-             raise Exception("Configuration SMTP incomplète (Vérifiez .env ou Config)")
+             raise Exception("⚠️ Configuration SMTP incomplète")
+             
+        notifier_test = EmailNotifier(smtp_server, int(smtp_port), smtp_user, smtp_password)
+        email_ok, email_msg = notifier_test.test_connection()
+        if not email_ok:
+            # Message spécifique demandé par l'utilisateur
+            raise Exception("⚠️ Résoudre les problèmes de connexions du mail d'abord")
 
         # ====================================================================
         # ÉTAPE 1 : Récupération des données Smappee
         # ====================================================================
         db.update_run(run_id, 'fetch_data', 'pending', 'Connexion à Smappee...')
         
-        smappee = SmappeeClient(smappee_client_id, smappee_client_secret)
-        
-        if not smappee.authenticate():
-            raise Exception("Échec de l'authentification Smappee")
+        # On peut réutiliser l'instance authentifiée
+        smappee = smappee_test
         
         # Appel avec 3 arguments : ID, Début, Fin
         df = smappee.get_charging_sessions(smappee_location_id, period_start, period_end)
