@@ -36,11 +36,6 @@ cd SMAPPEE
 pip install -r requirements.txt
 ```
 
-Pour installer les librairies Python nécessaires, placez-vous à la racine du projet puis exécutez :
-
-```bash
-pip install -r requirements.txt
-
 
 ### 2. Configuration (.env)
 
