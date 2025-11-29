@@ -3,8 +3,8 @@
 SmapExpense est une application web conçue pour automatiser la gestion
 des frais de recharge de véhicules électriques à domicile. Elle se
 connecte à votre borne **Smappee**, applique les tarifs officiels de la
-**CREG (Belgique)** et génère automatiquement des notes de frais
-mensuelles au format PDF.
+**CREG (Belgique)**, génère automatiquement des notes de frais
+mensuelles au format PDF et les envoie par mail à l'adresse choisie.
 
 ## 🚀 Fonctionnalités Principales
 
@@ -24,8 +24,8 @@ mensuelles au format PDF.
 
 ### Prérequis
 
--   Python 3.8 ou supérieur\
--   Compte Smappee (Client ID / Secret)\
+-   Python 3.8 ou supérieur
+-   Compte Smappee (Client ID / Secret)
 -   Serveur SMTP pour l'envoi d'emails
 
 ### 1. Cloner et Installer
@@ -37,7 +37,7 @@ pip install -r requirements.txt
 ```
 
 Si vous n'avez pas de fichier `requirements.txt`, les principales
-librairies sont :\
+librairies sont :
 `dash`, `dash-bootstrap-components`, `pandas`, `requests`,
 `python-dotenv`, `reportlab`, `apscheduler`.
 
@@ -71,10 +71,10 @@ Automatisation).
 python app.py
 ```
 
-Accédez à l'application :\
+Accédez à l'application :
 **http://localhost:8050**
 
--   **Analyse Manuelle** : exploration des données et tests.\
+-   **Analyse Manuelle** : exploration des données et tests.
 -   **Automatisation** : état du planificateur, historique,
     configuration.
 
@@ -130,5 +130,5 @@ Vérifier :
 sudo systemctl status smappee.service
 ```
 
-L'application sera accessible à l'adresse :\
+L'application sera accessible à l'adresse :
 **http://`<IP_DU_PI>`{=html}:8050**
