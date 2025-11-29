@@ -1,0 +1,31 @@
+# --- Sécurité : Identifiants et Secrets ---
+.env
+.env.local
+config_local.py
+*.db
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+*.egg-info/
+
+# --- Données Personnelles et App ---
+*.csv
+*.json
+*.xlsx
+*.xls
+*.pdf
+
+# --- IDE et Système ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
