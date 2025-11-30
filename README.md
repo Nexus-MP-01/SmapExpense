@@ -4,7 +4,7 @@ SmapExpense est une application web conçue pour automatiser la gestion
 des frais de recharge de véhicules électriques à domicile. Elle se
 connecte à votre borne **Smappee**, applique les tarifs officiels de la
 **CREG (Belgique)**, génère automatiquement des notes de frais
-mensuelles au format PDF et les envoi par mail à l'adresse choisie.
+mensuelles au format PDF et les envoie par mail à l'adresse choisie.
 
 ## 🚀 Fonctionnalités Principales
 
@@ -20,7 +20,9 @@ mensuelles au format PDF et les envoi par mail à l'adresse choisie.
     Calcul → PDF → Email) exécuté automatiquement chaque mois.
 -   **Notifications** : Envoi du rapport PDF par email via SMTP.
 
-## 🛠️ Installation
+------------------------------------------------------------------------
+
+## 🛠️ Installation Rapide (Local / PC)
 
 ### Prérequis
 
@@ -31,100 +33,127 @@ mensuelles au format PDF et les envoi par mail à l'adresse choisie.
 ### 1. Cloner et Installer
 
 ``` bash
-git clone <votre-repo-url>
-cd SMAPPEE
+git clone https://github.com/Nexus-MP-01/SmapExpense.git
+cd SmapExpense
 pip install -r requirements.txt
 ```
 
+### 2. Configuration
 
-### 2. Configuration (.env)
+Créez un fichier `.env` à la racine et remplissez-le (voir section
+Configuration plus bas).
 
-Créez un fichier `.env` :
-
-    # API Smappee
-    SMAPPEE_CLIENT_ID=votre_client_id
-    SMAPPEE_CLIENT_SECRET=votre_client_secret
-    SMAPPEE_LOCATION_ID=votre_location_id
-
-    # Email (SMTP)
-    SMTP_SERVER=mail.votre-serveur.com
-    SMTP_PORT=587
-    SMTP_USER=votre@email.com
-    SMTP_PASSWORD=votre_mot_de_passe
-    NOTIFICATION_EMAIL=destinataire@email.com
-
-    # App
-    DEBUG=False
-    HOST=0.0.0.0
-    PORT=8050
-
-Les paramètres peuvent aussi être configurés via l'interface web (onglet
-Automatisation).
-
-## ▶️ Utilisation
+### 3. Lancer
 
 ``` bash
 python app.py
 ```
 
-Accédez à l'application :
+Accédez ensuite à :\
 **http://localhost:8050**
 
--   **Analyse Manuelle** : exploration des données et tests.
--   **Automatisation** : état du planificateur, historique,
-    configuration.
+------------------------------------------------------------------------
 
-## 🍓 Installation sur Raspberry Pi (Headless)
+## 🍓 Installation Complète sur Raspberry Pi (Production)
 
-### 1. Préparation
+Installation optimisée pour Raspberry Pi OS (Bookworm ou plus récent).
+
+### 1. Préparation du système
 
 ``` bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install python3-pip git -y
+sudo apt install git python3-pip python3-venv -y
 ```
 
-### 2. Installation
+### 2. Récupération du code
 
-Clonez le projet sur votre Raspberry Pi et installez les dépendances.
+``` bash
+cd ~
+git clone https://github.com/Nexus-MP-01/SmapExpense.git
+cd SmapExpense
+```
 
-### 3. Création du Service (systemd)
+### 3. Création de l'environnement virtuel (Venv)
+
+``` bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 4. Configuration (.env)
 
 Créez le fichier :
+
+``` bash
+nano .env
+```
+
+Contenu recommandé :
+
+``` ini
+# API Smappee
+SMAPPEE_CLIENT_ID=votre_client_id
+SMAPPEE_CLIENT_SECRET=votre_client_secret
+SMAPPEE_LOCATION_ID=votre_location_id
+
+# Email (SMTP)
+SMTP_SERVER=mail.infomaniak.com
+SMTP_PORT=587
+SMTP_USER=votre@email.com
+SMTP_PASSWORD=votre_mot_de_passe
+NOTIFICATION_EMAIL=destinataire@email.com
+
+# App Production
+DEBUG=False
+HOST=0.0.0.0
+PORT=8050
+```
+
+### 5. Lancement automatique au démarrage (Systemd)
 
 ``` bash
 sudo nano /etc/systemd/system/smappee.service
 ```
 
-Contenu :
+Service Systemd :
 
-    [Unit]
-    Description=SmapExpense Dashboard
-    After=network.target
+``` ini
+[Unit]
+Description=SmapExpense Dashboard
+After=network.target
 
-    [Service]
-    User=pi
-    WorkingDirectory=/home/pi/SmappeeApp/SMAPPEE
-    ExecStart=/usr/bin/python3 /home/pi/SmappeeApp/SMAPPEE/app.py
-    Restart=always
-    RestartSec=10
-    Environment="PYTHONUNBUFFERED=1"
+[Service]
+User=<VOTRE_USER>
+WorkingDirectory=/home/<VOTRE_USER>/SmapExpense
+ExecStart=/home/<VOTRE_USER>/SmapExpense/venv/bin/python app.py
+Restart=always
+RestartSec=10
+Environment="PYTHONUNBUFFERED=1"
 
-    [Install]
-    WantedBy=multi-user.target
+[Install]
+WantedBy=multi-user.target
+```
 
-### 4. Activation
+Activez et démarrez :
 
 ``` bash
 sudo systemctl daemon-reload
 sudo systemctl enable smappee.service
 sudo systemctl start smappee.service
-```
-
-Vérifier :
-
-``` bash
 sudo systemctl status smappee.service
 ```
 
-L'application sera accessible à l'adresse :
-**http://`<IP_DU_PI>`{=html}:8050**
+Votre application est accessible via :\
+**http://`<IP_DU_RASPBERRY>`{=html}:8050**
+
+------------------------------------------------------------------------
+
+## ⚙️ Mises à jour futures
+
+``` bash
+cd ~/SmapExpense
+git pull
+./venv/bin/pip install -r requirements.txt
+sudo systemctl restart smappee.service
+```
