@@ -131,21 +131,25 @@ def create_date_selector():
             ], width=5),
             dbc.Col([
                 html.Div([
-                    html.Label(" ", style={'display': 'block', 'visibility': 'hidden', 'fontSize': '0.85em'}),
+                    # Label invisible pour pousser la flèche au niveau des champs de saisie (et pas au niveau des titres)
+                    html.Label("Spacer", style={'visibility': 'hidden', 'display': 'block', 'marginBottom': '8px'}),
+                    
+                    # Le bouton flèche
                     dbc.Button(
                         "➜",
                         id='params-calculate-end-date-btn',
                         size='sm',
                         className='sage-button',
-                        style={'width': '100%', 'fontSize': '16px', 'padding': '4px'},
+                        style={
+                            'fontSize': '16px', 
+                            'padding': '4px 15px', 
+                            'borderRadius': '4px'
+                        },
                         title="Fin du mois"
                     )
-                ], style={
-                    'display': 'flex',
-                    'flexDirection': 'column',
-                    'justifyContent': 'center',
-                    'alignItems': 'center'
-                })
+                ], 
+                className="d-flex flex-column align-items-center"
+                )
             ], width=2),
             dbc.Col([
                 html.Label("Date de fin:", style={'fontWeight': 'bold', 'fontSize': '0.85em'}),
